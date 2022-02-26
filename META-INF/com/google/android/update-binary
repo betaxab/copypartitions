@@ -77,11 +77,11 @@ shift
 #####################################################
 
 # Partitions ignored
-IGNORED=" oem_a oem_b system_a system_b boot_a boot_b vendor_a vendor_b "
+IGNORED=" boot_a boot_b dtbo_a dtbo_b oem_a oem_b system_a system_b vendor_a vendor_b vendor_boot_a vendor_boot_b vbmeta_a vbmeta_b vbmeta_system_a vbmeta_system_b "
 
 suffix_active=$(getprop ro.boot.slot_suffix)
 
-if [[ "$suffix_active" == "_a" ]]; then 
+if [[ "$suffix_active" == "_a" ]]; then
   suffix_swap="_b"
 else
   suffix_swap="_a"
@@ -97,6 +97,6 @@ for active in /dev/block/bootdevice/by-name/*$suffix_active; do
         part_inactive=$(readlink -fn $inactive);
         if [[ -n "$part_active" && -n "$part_active" && "$active" != "$part_active" && "$inactive" != "$part_inactive" ]]; then
           dd if=$part_active of=$part_inactive
-        fi  
+        fi
     fi
 done
