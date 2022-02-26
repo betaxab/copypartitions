@@ -1,0 +1,102 @@
+#!/sbin/sh
+
+#####################################################
+# Flashize Runtime (2016-04-06)                     #
+# Copyright 2016, Lanchon                           #
+#####################################################
+
+#####################################################
+# The Flashize Runtime is free software licensed    #
+# under GNU's Lesser General Public License (LGPL)  #
+# version 3 and any later version.                  #
+# ------------------------------------------------- #
+# Note: The code appended to the Flashize Runtime,  #
+# if any, is independently licensed.                #
+#####################################################
+
+if [ "$1" != "lanchon-magic" ]; then
+    export FLASHIZE_VERSION='2016-04-06'
+    log=''
+    if [ -f /tmp/flashize-log ]; then
+        log="$(cat /tmp/flashize-log)"
+        if [ -z "$log" ]; then
+            log=/tmp/flashize.log
+        fi
+    fi
+    if [ "$log" == "-" ]; then
+        log=""
+    fi
+    out="/proc/self/fd/$2"
+    zip="$3"
+    if [ -n "$log" ]; then
+        if [ "${log::1}" != "/" ]; then
+            logzip="$zip"
+            if [ "$logzip" == "/tmp/update.zip" ] || [ "$logzip" == "/sideload/package.zip" ]; then
+                # if sideloading, for relative logfile naming purposes pretend that the zip is:
+                logzip=/tmp/flashize.zip
+            fi
+            if [ "$log" == ":" ]; then
+                log="$(basename "$logzip" .zip).log"
+            fi
+            log="$(dirname "$logzip")/$log"
+        fi
+        mkdir -p "$(dirname "$log")"
+    fi
+    print() {
+        local s="$1"
+        if [ -n "$log" ]; then
+            >>"$log" echo "$s"
+        fi
+        if [ -z "$s" ]; then s=" "; fi
+        >$out echo "ui_print $s"
+        >$out echo "ui_print"
+    }
+    print
+    if [ -n "$log" ]; then
+        >"$log"
+    fi
+    set -o pipefail
+    /sbin/sh "$0" "lanchon-magic" "$zip" 2>&1 | (
+        IFS=""
+        while read -r line; do print "$line"; done
+    )
+    code=$?
+    print
+    if [ "$code" -eq "0" ]; then
+        print "[OK]";
+    else
+        print "[ERROR $code]";
+    fi
+    log=""
+    print
+    exit $code
+fi
+shift
+[ ! -f /tmp/flashize-debug ] || set -x
+
+#####################################################
+
+# Partitions ignored
+IGNORED=" oem_a oem_b system_a system_b boot_a boot_b vendor_a vendor_b "
+
+suffix_active=$(getprop ro.boot.slot_suffix)
+
+if [[ "$suffix_active" == "_a" ]]; then 
+  suffix_swap="_b"
+else
+  suffix_swap="_a"
+fi
+
+
+for active in /dev/block/bootdevice/by-name/*$suffix_active; do
+	partition=$(basename $active)
+    if [[ "${IGNORED/$partition}" = "$IGNORED" ]]; then
+        echo "Partition $partition"
+  	    inactive=$(echo $active | sed "s/${suffix_active}\$/${suffix_swap}/");
+        part_active=$(readlink -fn $active);
+        part_inactive=$(readlink -fn $inactive);
+        if [[ -n "$part_active" && -n "$part_active" && "$active" != "$part_active" && "$inactive" != "$part_inactive" ]]; then
+          dd if=$part_active of=$part_inactive
+        fi  
+    fi
+done
